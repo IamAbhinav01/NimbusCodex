@@ -1,0 +1,23 @@
+{
+  "name": "nimbusdockercreation",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/IamAbhinav01/NimbusCodex#readme",
+  "bugs": {
+    "url": "https://github.com/IamAbhinav01/NimbusCodex/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/IamAbhinav01/NimbusCodex.git"
+  },
+  "license": "ISC",
+  "author": "Abhinav",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1"
+  }
+}

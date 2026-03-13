@@ -1,0 +1,13 @@
+torch
+transformers
+datasets
+accelerate
+scikit-learn
+numpy
+langchain
+langchain-community
+langchain-groq
+langgraph
+langsmith
+opencv-python-headless
+tqdm
