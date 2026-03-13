@@ -1,4 +1,0 @@
-FROM lab-base
-
-RUN pip install \
-numpy
