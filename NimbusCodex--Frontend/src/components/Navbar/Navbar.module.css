@@ -95,3 +95,25 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
 }
+
+.userMenu {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-left: 1px solid var(--border);
+  padding-left: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+.userEmail {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.45rem 0.85rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}

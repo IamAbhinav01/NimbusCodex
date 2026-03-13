@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Terminal, Github, BookOpen, Zap } from 'lucide-react';
+import { Terminal, Github, BookOpen, Zap, LogOut, User } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
+  const { isAuthenticated, user, logout } = useAuth();
   return (
     <nav className={styles.navbar}>
       <div className={styles.container}>
@@ -29,6 +31,24 @@ export default function Navbar() {
             <Github size={14} />
             GitHub
           </a>
+          
+          {isAuthenticated ? (
+            <div className={styles.userMenu}>
+              <span className={styles.userEmail}>
+                <User size={14} />
+                {user?.email}
+              </span>
+              <button onClick={logout} className={styles.navLink}>
+                <LogOut size={14} />
+                Log Out
+              </button>
+            </div>
+          ) : (
+            <Link to="/login" className={styles.navLink}>
+              Log In
+            </Link>
+          )}
+
           <Link to="/lab" className={styles.launchBtn}>
             <Zap size={14} />
             Launch

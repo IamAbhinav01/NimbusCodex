@@ -53,11 +53,15 @@ src/
     ├── EnvironmentGrid/        # Grid of environment cards
     ├── EnvironmentCard/        # Single environment card
     ├── EnvironmentDrawer/      # Bottom sheet detail drawer
+    ├── Auth/                   # Login & Sign-Up panel 
     ├── CodeEditor/             # Monaco editor wrapper
     ├── Terminal/               # Xterm.js terminal
     ├── MetricsPanel/           # Live CPU/memory chart
-    ├── RunButton/              # Run/loading button
+    └── RunButton/              # Run/loading button
     └── Workspace/              # Full IDE layout orchestrator
+
+├── context/
+│   └── AuthContext.tsx         # Global JWT state and local storage manager
 ```
 
 ---
@@ -75,10 +79,11 @@ src/
 - Imports global [index.css](file:///e:/NimbusCodex/NimbusCodex--Frontend/src/index.css) before [App](file:///e:/NimbusCodex/NimbusCodex--Frontend/src/App.tsx#5-15)
 
 ### [App.tsx](file:///e:/NimbusCodex/NimbusCodex--Frontend/src/App.tsx)
-- Wraps app in `<BrowserRouter>`
-- **Two routes:**
+- Wraps app in `<AuthProvider>` and `<BrowserRouter>`
+- **Three routes:**
   - `/` → `<Home />`
-  - `/lab` → `<Lab />`
+  - `/login` → `<Auth />`
+  - `/lab` → `<AuthGuard>` → `<Lab />` (Protected route)
 
 ---
 
@@ -186,7 +191,11 @@ Each environment includes a **full boilerplate code template** (Fibonacci, ML pi
 **What it renders:**
 - Fixed top bar (z-index 100), backdrop-blur 20px, 85% white glass background
 - Logo: indigo→violet gradient icon box (36×36px, 10px radius, ≤4px shadow) + "Nimbus**Codex**" with accent color on "Codex"
-- Nav links: "Docs" (BookOpen icon), "GitHub" (links to `https://github.com/IamAbhinav01/NimbusCodex`, opens in new tab), "Launch" CTA button
+- Nav links: "Docs" (BookOpen icon), "GitHub"
+- **Dynamic Auth Menu**: 
+  - If Unauthenticated: shows "Log In" link
+  - If Authenticated: replaces link with current `user.email` and a "Log Out" button
+- "Launch" CTA button (accent color)
 
 **CSS highlights:**
 - Container: `max-width: 1280px`, `height: 64px`
@@ -281,7 +290,19 @@ Each environment includes a **full boilerplate code template** (Fibonacci, ML pi
 
 ---
 
-### 7.6 [CodeEditor](file:///e:/NimbusCodex/NimbusCodex--Frontend/src/components/CodeEditor/CodeEditor.tsx#134-190)
+### 7.6 [Auth](file:///e:/NimbusCodex/NimbusCodex--Frontend/src/pages/Auth/Auth.tsx) (Phase 2)
+**File**: `Auth.tsx` + `Auth.module.css`
+
+**What it renders:**
+- Centralized card with a toggleable form state (Login vs Registration)
+- Uses matching Light Premium CSS `--bg-primary` radial gradients.
+- Integrates directly with the `http://localhost:4001/register` Express backend to issue and receive JWTs.
+- `AuthContext.tsx`: Saves the resulting token to `localStorage` and redirects user to `/lab` upon success.
+- `AuthGuard.tsx`: Intercepts unauthenticated hits to `/lab` and forces them here.
+
+---
+
+### 7.7 [CodeEditor](file:///e:/NimbusCodex/NimbusCodex--Frontend/src/components/CodeEditor/CodeEditor.tsx#134-190)
 
 **File**: [CodeEditor.tsx](file:///e:/NimbusCodex/NimbusCodex--Frontend/src/components/CodeEditor/CodeEditor.tsx) + [CodeEditor.module.css](file:///e:/NimbusCodex/NimbusCodex--Frontend/src/components/CodeEditor/CodeEditor.module.css)
 
