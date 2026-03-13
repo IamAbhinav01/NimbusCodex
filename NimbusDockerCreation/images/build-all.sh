@@ -5,7 +5,7 @@ set -x
 IMAGES=(
   "python-basic"
   "node-ts"
-  "node-full"
+  "node-fullstack"
   "cpp"
   "java"
   "python-ds"
@@ -16,18 +16,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 for IMAGE in "${IMAGES[@]}"; do
   echo "========================================"
-  echo "Building cloudlab/${IMAGE}:latest ..."
+  echo "Building nimbuscodex/${IMAGE}:latest ..."
   echo "========================================"
-  docker build -t "cloudlab/${IMAGE}:latest" "${SCRIPT_DIR}/${IMAGE}"
+  docker build -t "nimbuscodex/${IMAGE}:latest" "${SCRIPT_DIR}/${IMAGE}"
 done
 
 echo ""
 echo "========================================"
-echo "  All CloudLab images built successfully!"
+echo "  All NimbusCodex images built successfully!"
 echo "========================================"
 echo ""
 echo "Images created:"
 for IMAGE in "${IMAGES[@]}"; do
-  echo "  ✓  cloudlab/${IMAGE}:latest"
+  echo "  ✓  nimbuscodex/${IMAGE}:latest"
 done
 echo ""

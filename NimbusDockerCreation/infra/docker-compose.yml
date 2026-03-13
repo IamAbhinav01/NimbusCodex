@@ -49,40 +49,41 @@ services:
       retries: 3
 
   # ---------------------------------------------------------------------------
-  # API GATEWAY – Phase 2 Placeholder
-  # Uncomment when services/gateway is implemented in Phase 2.
+  # API GATEWAY – Phase 5 ACTIVE
+  # Centralized routing and Auth enforcement
   # ---------------------------------------------------------------------------
-  # gateway:
-  #   build:
-  #     context: ../services/gateway
-  #   ports:
-  #     - "4000:4000"
-  #   environment:
-  #     AUTH_URL: http://auth:4001
-  #     ORCHESTRATOR_URL: http://orchestrator:4002
-  #     CODE_RUNNER_URL: http://code-runner:4003
-  #     SCHEDULER_URL: http://scheduler:4004
-  #   depends_on:
-  #     auth:
-  #       condition: service_started
-  #     postgres:
-  #       condition: service_healthy
+  gateway:
+    build:
+      context: ../services/gateway
+    ports:
+      - "4000:4000"
+    environment:
+      AUTH_URL: http://auth:4001
+      ORCHESTRATOR_URL: http://orchestrator:4002
+      CODE_RUNNER_URL: http://code-runner:4003
+      SCHEDULER_URL: http://scheduler:4004
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      auth:
+        condition: service_started
+      postgres:
+        condition: service_healthy
 
   # ---------------------------------------------------------------------------
   # AUTH SERVICE – Phase 2 Placeholder
   # Uncomment when services/auth is implemented in Phase 2.
   # ---------------------------------------------------------------------------
-  # auth:
-  #   build:
-  #     context: ../services/auth
-  #   ports:
-  #     - "4001:4001"
-  #   environment:
-  #     JWT_SECRET: ${JWT_SECRET}
-  #     DATABASE_URL: ${DATABASE_URL}
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  auth:
+    build:
+      context: ../services/auth
+    ports:
+      - "4001:4001"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # ---------------------------------------------------------------------------
   # ORCHESTRATOR – Phase 2 ACTIVE

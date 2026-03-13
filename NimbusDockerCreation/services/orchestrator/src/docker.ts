@@ -9,7 +9,7 @@ export const docker = new Docker({ socketPath: '/var/run/docker.sock' });
  * Returns the container ID.
  */
 export async function startEnvironmentContainer(env: string): Promise<string> {
-  const imageName = `NIMBUSCODEX/${env}:latest`;
+  const imageName = `nimbuscodex/${env}:latest`;
 
   // Create container using the specific image
   const container = await docker.createContainer({

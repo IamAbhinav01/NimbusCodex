@@ -44,4 +44,4 @@ We wired the React Frontend's `Workspace.tsx` component to this new backend API:
 
 At the end of Phase 4, the CloudLab system can successfully authenticate users, serve a dynamic frontend Workspace, and securely provision real, isolated Docker sandboxes on demand across 7 different programming languages.
 
-We are perfectly positioned to begin Phase 5: building the API Gateway routing mechanism, and Phase 6: the Code Runner service, which will execute the actual user-submitted code inside these live sandboxes!
+We are perfectly positioned to begin Phase 6: the Code Runner service, which will execute the actual user-submitted code inside these live sandboxes! All routing is now centralized and secure through the API Gateway on port 4000.
