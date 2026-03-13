@@ -1,0 +1,193 @@
+# =============================================================================
+# NimbusCodex – docker-compose.yml
+#
+# Phase 1:  postgres + redis are ACTIVE
+# Phase 2+: All other services are COMMENTED OUT as placeholders.
+#           Uncomment each service as its phase is implemented.
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # DATABASE – PostgreSQL 16
+  # Phase 1 — ACTIVE
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # CACHE / QUEUE – Redis 7 with AOF persistence
+  # Phase 1 — ACTIVE
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # API GATEWAY – Phase 2 Placeholder
+  # Uncomment when services/gateway is implemented in Phase 2.
+  # ---------------------------------------------------------------------------
+  # gateway:
+  #   build:
+  #     context: ../services/gateway
+  #   ports:
+  #     - "4000:4000"
+  #   environment:
+  #     AUTH_URL: http://auth:4001
+  #     ORCHESTRATOR_URL: http://orchestrator:4002
+  #     CODE_RUNNER_URL: http://code-runner:4003
+  #     SCHEDULER_URL: http://scheduler:4004
+  #   depends_on:
+  #     auth:
+  #       condition: service_started
+  #     postgres:
+  #       condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # AUTH SERVICE – Phase 2 Placeholder
+  # Uncomment when services/auth is implemented in Phase 2.
+  # ---------------------------------------------------------------------------
+  # auth:
+  #   build:
+  #     context: ../services/auth
+  #   ports:
+  #     - "4001:4001"
+  #   environment:
+  #     JWT_SECRET: ${JWT_SECRET}
+  #     DATABASE_URL: ${DATABASE_URL}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # ORCHESTRATOR – Phase 2 Placeholder
+  # Manages container lifecycle; needs Docker socket access.
+  # Uncomment when services/orchestrator is implemented in Phase 2.
+  # ---------------------------------------------------------------------------
+  # orchestrator:
+  #   build:
+  #     context: ../services/orchestrator
+  #   ports:
+  #     - "4002:4002"
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   environment:
+  #     DATABASE_URL: ${DATABASE_URL}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # CODE RUNNER – Phase 3 Placeholder
+  # Executes code inside student containers; needs Docker socket access.
+  # Uncomment when services/code-runner is implemented in Phase 3.
+  # ---------------------------------------------------------------------------
+  # code-runner:
+  #   build:
+  #     context: ../services/code-runner
+  #   ports:
+  #     - "4003:4003"
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+
+  # ---------------------------------------------------------------------------
+  # SCHEDULER – Phase 4 Placeholder
+  # Session scheduling and expiry management.
+  # Uncomment when services/scheduler is implemented in Phase 4.
+  # ---------------------------------------------------------------------------
+  # scheduler:
+  #   build:
+  #     context: ../services/scheduler
+  #   ports:
+  #     - "4004:4004"
+  #   environment:
+  #     DATABASE_URL: ${DATABASE_URL}
+  #     REDIS_URL: ${REDIS_URL}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_started
+
+  # ---------------------------------------------------------------------------
+  # CELERY WORKER – Phase 4 Placeholder
+  # Async task execution for scheduled session cleanup.
+  # Uncomment when services/scheduler is implemented in Phase 4.
+  # ---------------------------------------------------------------------------
+  # celery-worker:
+  #   build:
+  #     context: ../services/scheduler
+  #   command: celery -A celery_app worker --loglevel=info
+  #   environment:
+  #     DATABASE_URL: ${DATABASE_URL}
+  #     REDIS_URL: ${REDIS_URL}
+  #   depends_on:
+  #     redis:
+  #       condition: service_started
+  #     scheduler:
+  #       condition: service_started
+
+  # ---------------------------------------------------------------------------
+  # CELERY BEAT – Phase 4 Placeholder
+  # Periodic task scheduler (cron-like) for session expiry sweeps.
+  # Uncomment when services/scheduler is implemented in Phase 4.
+  # ---------------------------------------------------------------------------
+  # celery-beat:
+  #   build:
+  #     context: ../services/scheduler
+  #   command: celery -A celery_app beat --loglevel=info
+  #   depends_on:
+  #     redis:
+  #       condition: service_started
+
+  # ---------------------------------------------------------------------------
+  # PROMETHEUS – Phase 5 Placeholder
+  # Metrics collection and alerting.
+  # Uncomment when observability stack is set up in Phase 5.
+  # ---------------------------------------------------------------------------
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   ports:
+  #     - "9090:9090"
+
+  # ---------------------------------------------------------------------------
+  # GRAFANA – Phase 5 Placeholder
+  # Metrics dashboards and visualization.
+  # Uncomment when observability stack is set up in Phase 5.
+  # ---------------------------------------------------------------------------
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3001:3000"
+
+# =============================================================================
+# Named Volumes
+# =============================================================================
+volumes:
+  pgdata:
+  redisdata:
