@@ -22,6 +22,14 @@ A standalone Express.js microservice (`services/auth/`) that manages user regist
 - **Data Layer**: Connects to the centralized `postgres` container using the `pg` client.
 - **Dockerized**: Fully integrated into the root `docker-compose.yml`. Builds using a multi-stage-like Typescript compilation inside `node:20-alpine`.
 
+### Phase 4: Orchestrator Service
+A Node.js microservice (`services/orchestrator/`) acting as the control plane for CloudLab. It translates frontend environment requests into actual Docker containers.
+- **Tools used**: `express`, `dockerode`, `uuid`, `pg`.
+- **System Access**: The `docker-compose.yml` mounts `/var/run/docker.sock` directly into the orchestrator container so it can control the host Docker engine.
+- **Endpoints**:
+  - `POST /sessions`: Accepts an environment (e.g. `python-ds`), calls Docker to create a new generic container using that image, records the container mapping in PostgreSQL (`sessions` table), and returns the `session_id`.
+  - `DELETE /sessions/:id`: Shuts down the Docker container and marks the DB record as `expired`.
+
 ## Getting Started
 
 1. Set up your environment variables by copying the example file:
