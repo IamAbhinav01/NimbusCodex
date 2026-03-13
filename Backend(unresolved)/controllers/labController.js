@@ -1,8 +1,12 @@
 const dockerService = require("../services/dockerService");
 
-const launchLab = async (req, res) => {
+exports.launchLab = async (req, res) => {
+
   try {
-    const lab = await dockerService.startLab();
+
+    const { labType } = req.body;
+
+    const lab = await dockerService.startLab(labType);
 
     res.json({
       message: "Lab started",
@@ -11,10 +15,11 @@ const launchLab = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
 
-module.exports = {
-  launchLab
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
 };
