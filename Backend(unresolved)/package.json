@@ -1,0 +1,28 @@
+{
+  "name": "nimbuscodex",
+  "version": "1.0.0",
+  "description": "Hackathon Project - Cloud based lab management tool",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Adithyadamodara/NimbusCodex.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Adithyadamodara/NimbusCodex/issues"
+  },
+  "homepage": "https://github.com/Adithyadamodara/NimbusCodex#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dockerode": "^4.0.9",
+    "dotenv": "^16.0.0",
+    "express": "^5.2.1",
+    "pg": "^8.20.0"
+  }
+}
