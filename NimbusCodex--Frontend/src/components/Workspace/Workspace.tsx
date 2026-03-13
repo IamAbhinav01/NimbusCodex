@@ -64,16 +64,57 @@ export default function Workspace({ environment }: Props) {
   const [isLaunching, setIsLaunching] = useState(true);
   const terminalRef = useRef<TerminalHandle>(null);
 
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
   useEffect(() => {
-    // Simulate 2s container startup
-    const timer = setTimeout(() => {
-      setIsLaunching(false);
-      terminalRef.current?.writeln('\x1b[32m✓ Environment ready.\x1b[0m');
-      terminalRef.current?.writeln('');
-      terminalRef.current?.write('\x1b[32m$\x1b[0m ');
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    let activeSessionId: string | null = null;
+    let isMounted = true;
+
+    const launchEnvironment = async () => {
+      try {
+        const response = await fetch('http://localhost:4002/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ env: environment.id })
+        });
+        
+        if (!response.ok) throw new Error('Failed to launch');
+        
+        const data = await response.json();
+        
+        if (!isMounted) {
+          // If unmounted during fetch, clean up the orphaned session
+          fetch(`http://localhost:4002/sessions/${data.session_id}`, { method: 'DELETE' }).catch(console.error);
+          return;
+        }
+
+        activeSessionId = data.session_id;
+        setSessionId(data.session_id);
+        
+        setIsLaunching(false);
+        terminalRef.current?.writeln('\x1b[90m> Connected to CloudLab Runtime via Orchestrator\x1b[0m');
+        terminalRef.current?.writeln('\x1b[32m✓ Environment ready.\x1b[0m');
+        terminalRef.current?.writeln('');
+        terminalRef.current?.write('\x1b[32m$\x1b[0m ');
+      } catch (error) {
+        if (isMounted) {
+          setIsLaunching(false);
+          terminalRef.current?.writeln('\x1b[31m✗ Failed to connect to Orchestrator service.\x1b[0m');
+        }
+      }
+    };
+    
+    launchEnvironment();
+    
+    return () => {
+      isMounted = false;
+      if (activeSessionId) {
+        fetch(`http://localhost:4002/sessions/${activeSessionId}`, {
+          method: 'DELETE',
+        }).catch(console.error);
+      }
+    };
+  }, [environment.id]);
 
   const handleRun = useCallback(async () => {
     if (isRunning || isLaunching) return;
