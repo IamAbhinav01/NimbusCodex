@@ -22,8 +22,6 @@ export async function executeCode(
 
   const filenameMap: Record<string, string> = {
     python: 'main.py',
-    typescript: 'main.ts',
-    javascript: 'main.js',
     cpp: 'main.cpp',
     java: 'Main.java',
     go: 'main.go',
@@ -56,8 +54,6 @@ export async function executeCode(
   // 2. Command mapping
   const commandMap: Record<string, string[]> = {
     python: ['python3', filePath],
-    typescript: ['npx', 'ts-node', filePath],
-    javascript: ['node', filePath],
     cpp: ['sh', '-c', `g++ -o /tmp/run_binary ${filePath} && /tmp/run_binary`],
     java: ['sh', '-c', `javac ${filePath} && java -cp /tmp Main`],
     go: ['go', 'run', filePath],
