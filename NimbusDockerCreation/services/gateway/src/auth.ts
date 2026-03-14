@@ -25,11 +25,12 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
   const token = authHeader.split(' ')[1];
 
   try {
+    console.log(`[Auth Debug] Verifying token for ${req.originalUrl}. Length: ${token?.length}, Start: ${token?.substring(0, 10)}...`);
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error: any) {
-    console.warn(`[Auth] Rejected ${req.method} ${req.url}: ${error.message}`);
+    console.warn(`[Auth] Rejected ${req.method} ${req.originalUrl}: ${error.message} (Token start: ${token?.substring(0, 10)})`);
     res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
     return;
   }

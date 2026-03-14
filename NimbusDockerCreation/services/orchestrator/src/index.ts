@@ -3,11 +3,23 @@ import cors from 'cors';
 import routes from './routes';
 import { redis } from './redis';
 import { startExpiryScheduler } from './scheduler';
+import { registry } from './metrics';
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[Orchestrator Logger] ${req.method} ${req.url}`);
+  next();
+});
+
+app.get('/metrics', async (req: Request, res: Response) => {
+  res.set('Content-Type', registry.contentType);
+  res.end(await registry.metrics());
+});
 
 app.use('/', routes);
 

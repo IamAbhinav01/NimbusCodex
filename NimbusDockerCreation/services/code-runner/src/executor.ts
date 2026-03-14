@@ -36,13 +36,13 @@ export async function executeCode(
   // Using a base64 encoded string avoids escaping issues with the code content.
   const base64Code = Buffer.from(code).toString('base64');
   console.log(`[Executor] Writing ${language} code to ${filePath} (${code.length} bytes)...`);
-  
+
   const writeExec: any = await container.exec({
     Cmd: ['sh', '-c', `echo "${base64Code}" | base64 -d > ${filePath}`],
     AttachStdout: true,
     AttachStderr: true,
   });
-  
+
   const writeStream = await writeExec.start({});
   await new Promise((resolve) => {
     writeStream.on('end', resolve);
@@ -60,7 +60,8 @@ export async function executeCode(
     rust: ['sh', '-c', `rustc ${filePath} -o /app/run_binary && /app/run_binary`],
   };
 
-  const cmd: string[] = commandMap[language] || ['cat', filePath];
+  const cmd: string[] = commandMap[language];
+  if (!cmd) throw new Error(`Unsupported language: ${language}`);
 
   // 3. Exec the actual code
   console.log(`[Executor] Executing: ${cmd.join(' ')}`);
@@ -69,7 +70,7 @@ export async function executeCode(
     AttachStdout: true,
     AttachStderr: true,
   };
-  
+
   const exec = await container.exec(execOptions);
   const stream: any = await exec.start({ hijack: true, Detach: false });
 
@@ -84,10 +85,10 @@ export async function executeCode(
     stream.on('data', (chunk: any) => {
       // Docker socket stream multiplexing: [header 8 bytes][data]
       if (!chunk || chunk.length < 8) {
-          stdout += String(chunk);
-          return;
+        stdout += String(chunk);
+        return;
       }
-      
+
       try {
         let offset = 0;
         while (offset < chunk.length) {
@@ -96,10 +97,10 @@ export async function executeCode(
           const length = chunk.readUInt32BE(offset + 4);
           const end = offset + 8 + length;
           const data = chunk.toString('utf8', offset + 8, Math.min(end, chunk.length));
-          
+
           if (type === 1) stdout += data;
           else if (type === 2) stderr += data;
-          
+
           offset = end;
         }
       } catch (e) {
@@ -121,14 +122,14 @@ export async function executeCode(
     });
 
     stream.on('error', (err: any) => reject(err));
-    
+
     // Safety timeout for long-running scripts (can be increased later)
     setTimeout(() => {
-        resolve({
-            stdout: stdout.trim() + '\n[Timeout: Execution exceeded 10s]',
-            stderr: stderr.trim(),
-            exitCode: 124
-        });
-    }, 10000);
+      resolve({
+        stdout: stdout.trim() + '\n[Timeout: Execution exceeded 30s]',
+        stderr: stderr.trim(),
+        exitCode: 124
+      });
+    }, 30000);
   });
 }

@@ -34,6 +34,10 @@ export default function Workspace({ environment }: Props) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [isExpired, setIsExpired] = useState(false);
 
+  // Session resource limits
+  const [memoryLimit, setMemoryLimit] = useState<number>(256);
+  const [cpuLimit, setCpuLimit] = useState<number>(0.5);
+
   // Ref to track the session ID across the async lifecycle for cleanup
   const activeSessionRef = useRef<string | null>(null);
 
@@ -72,6 +76,8 @@ export default function Workspace({ environment }: Props) {
         activeSessionRef.current = data.session_id;
         setSessionId(data.session_id);
         if (data.end_time) setEndTime(new Date(data.end_time));
+        if (data.cpu_limit) setCpuLimit(data.cpu_limit);
+        if (data.memory_limit) setMemoryLimit(data.memory_limit);
 
         setIsLaunching(false);
         terminalRef.current?.writeln('\x1b[90m> Connected to CloudLab Runtime via Orchestrator\x1b[0m');
@@ -278,8 +284,12 @@ export default function Workspace({ environment }: Props) {
         <div className={styles.editorArea}>
           <CodeEditor language={environment.language} value={code} onChange={setCode} />
         </div>
-        <div className={styles.metricsArea}>
-          <MetricsPanel />
+        <div className={styles.rightPanel}>
+          <MetricsPanel 
+            sessionId={sessionId}
+            cpuLimit={cpuLimit} 
+            memoryLimit={memoryLimit} 
+          />
         </div>
         <div className={styles.terminalArea}>
           <Terminal ref={terminalRef} language={environment.language} />

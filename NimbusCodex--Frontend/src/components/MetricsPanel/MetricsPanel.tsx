@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import {
   AreaChart,
   Area,
@@ -30,26 +31,60 @@ function generateInitialData(): DataPoint[] {
   }));
 }
 
-export default function MetricsPanel() {
-  const [data, setData] = useState<DataPoint[]>(generateInitialData);
+interface Props {
+  sessionId?: string | null;
+  cpuLimit?: number;
+  memoryLimit?: number;
+}
+
+export default function MetricsPanel({ sessionId, cpuLimit = 0.5, memoryLimit = 256 }: Props) {
+  const { token } = useAuth();
+  const [data, setData] = useState<DataPoint[]>([]);
   const tickRef = useRef(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      tickRef.current += 2;
-      setData((prev) => {
-        const next = [...prev.slice(-11), {
-          time: `${tickRef.current}s`,
-          cpu: randomBetween(10, 85),
-          mem: randomBetween(20, 85),
-        }];
-        return next;
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+    if (!sessionId || !token) return;
 
-  const latest = data[data.length - 1];
+    const pollStats = async () => {
+      try {
+        console.log(`[MetricsPanel Debug] Polling stats for ${sessionId} with token starts with: ${token?.substring(0, 10)}`);
+        
+        const res = await fetch(`http://localhost:4000/api/sessions/${sessionId}/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) {
+          console.warn(`[MetricsPanel Warning] Stats fetch failed with status ${res.status}`);
+          const errText = await res.text();
+          console.warn(`[MetricsPanel Warning] Error body: ${errText}`);
+          return;
+        }
+
+        const stats = await res.json();
+        
+        tickRef.current += 2;
+        setData((prev) => {
+          const next = [...prev.slice(-14), {
+            time: `${tickRef.current}s`,
+            cpu: stats.cpuPercent,
+            mem: stats.memPercent,
+          }];
+          return next;
+        });
+      } catch (err) {
+        console.error('[MetricsPanel] Polling failed:', err);
+      }
+    };
+
+    const interval = setInterval(pollStats, 2000);
+    console.log(`[MetricsPanel] Starting stats polling for session: ${sessionId}`);
+    return () => {
+      console.log(`[MetricsPanel] Stopping stats polling for session: ${sessionId}`);
+      clearInterval(interval);
+    };
+  }, [sessionId, token]);
+
+  const latest = data.length > 0 ? data[data.length - 1] : { cpu: 0, mem: 0 };
 
   return (
     <div className={styles.panel}>
@@ -67,7 +102,7 @@ export default function MetricsPanel() {
             <Cpu size={14} />
           </div>
           <div>
-            <div className={styles.statLabel}>CPU</div>
+            <div className={styles.statLabel}>CPU (Allocated: {cpuLimit} vCPU)</div>
             <div className={styles.statValue} style={{ color: '#4f46e5' }}>
               {latest?.cpu ?? 0}%
             </div>
@@ -78,7 +113,7 @@ export default function MetricsPanel() {
             <MemoryStick size={14} />
           </div>
           <div>
-            <div className={styles.statLabel}>Memory</div>
+            <div className={styles.statLabel}>Memory (Allocated: {memoryLimit} MB)</div>
             <div className={styles.statValue} style={{ color: '#06b6d4' }}>
               {latest?.mem ?? 0}%
             </div>

@@ -7,4 +7,9 @@ export default defineConfig({
   optimizeDeps: {
     include: ['@monaco-editor/react'],
   },
+  server: {
+    allowedHosts: [
+      "significantly-cracklier-jesenia.ngrok-free.dev"
+    ]
+  }
 })

@@ -10,7 +10,8 @@ export const redis = new Redis(REDIS_URL, {
 redis.on('connect', () => console.log('[Redis] Connected'));
 redis.on('error', (err) => console.error('[Redis] Error:', err.message));
 
-const SESSION_TTL = 10 * 60; // 10 minutes in seconds
+// Session Time-To-Live in seconds (10 minutes)
+export const SESSION_TTL = 600;
 
 /**
  * Register a session in Redis with a 10-minute TTL.

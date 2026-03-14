@@ -2,10 +2,17 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import { executeCode } from './executor';
+import { z } from 'zod';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const executionSchema = z.object({
+  sessionId: z.string().uuid(),
+  code: z.string().min(1).max(50000), // Prevent massive code injection
+  language: z.enum(['python', 'cpp', 'java', 'go', 'rust'])
+});
 
 const db = new Pool({
   connectionString: process.env.DATABASE_URL
@@ -16,14 +23,9 @@ const db = new Pool({
  * { sessionId, code, language }
  */
 app.post('/execute', async (req: Request, res: Response): Promise<void> => {
-  const { sessionId, code, language } = req.body;
-
-  if (!sessionId || !code || !language) {
-    res.status(400).json({ error: 'Missing required fields' });
-    return;
-  }
-
   try {
+    const { sessionId, code, language } = executionSchema.parse(req.body);
+
     // 1. Fetch containerId from database
     const result = await db.query(
       'SELECT container_id FROM sessions WHERE session_id = $1 AND status = $2',
@@ -45,6 +47,11 @@ app.post('/execute', async (req: Request, res: Response): Promise<void> => {
     res.json(result_exec);
   } catch (error: any) {
     console.error('[CodeRunner] Execution error:', error);
+    // Handle Zod validation errors specifically
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return;
+    }
     res.status(500).json({ error: 'Execution failed', details: error.message });
   }
 });
