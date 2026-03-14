@@ -4,8 +4,6 @@ set -x
 
 IMAGES=(
   "python-basic"
-  "node-ts"
-  "node-fullstack"
   "cpp"
   "java"
   "python-ds"

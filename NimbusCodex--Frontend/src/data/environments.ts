@@ -89,59 +89,6 @@ print(f"Accuracy: {accuracy_score(y_test, predictions):.4f}")
   },
 
   {
-    id: 'node-ts',
-    name: 'Node.js + TypeScript',
-    icon: '🟨',
-    description: 'Type-safe server-side JavaScript with Node and TypeScript.',
-    libraries: ['typescript', 'ts-node', 'express', 'zod', 'dotenv'],
-    color: '#f59e0b',
-    language: 'typescript',
-    template: `// Node.js + TypeScript — CloudLab
-interface User {
-  id: number
-  name: string
-  email: string
-}
-
-const users: User[] = [
-  { id: 1, name: 'Alice', email: 'alice@cloudlab.dev' },
-  { id: 2, name: 'Bob', email: 'bob@cloudlab.dev' }
-]
-
-function findUser(id: number): User | undefined {
-  return users.find(u => u.id === id)
-}
-
-console.log(findUser(1))
-console.log(\`Total users: \${users.length}\`)
-`,
-  },
-
-  {
-    id: 'node-fullstack',
-    name: 'Node.js Full Stack',
-    icon: '🌐',
-    description: 'Full-stack JavaScript with Express, Prisma, and more.',
-    libraries: ['express', 'prisma', 'socket.io', 'jsonwebtoken', 'cors'],
-    color: '#10b981',
-    language: 'typescript',
-    template: `// Node.js Full Stack — CloudLab
-import express from "express"
-
-const app = express()
-app.use(express.json())
-
-app.get("/health", (_req, res) => {
-  res.json({ status: "OK", timestamp: new Date().toISOString() })
-})
-
-app.listen(3000, () => {
-  console.log("CloudLab server running on http://localhost:3000")
-})
-`,
-  },
-
-  {
     id: 'cpp',
     name: 'C / C++',
     icon: '⚙️',
