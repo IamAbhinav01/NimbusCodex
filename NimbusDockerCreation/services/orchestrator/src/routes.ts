@@ -20,11 +20,11 @@ router.post('/sessions', async (req: Request, res: Response): Promise<void> => {
     console.log(`[Orchestrator] Starting container for env: ${env}`);
     const containerId = await startEnvironmentContainer(env);
     
-    // 2. Record this in the database (end_time auto-set to NOW() + 2h)
+    // 2. Record this in the database (end_time auto-set to NOW() + 10m)
     const sessionId = uuidv4();
     const result = await db.query(
       `INSERT INTO sessions (session_id, env, container_id, status, duration_minutes)
-       VALUES ($1, $2, $3, 'active', 120)
+       VALUES ($1, $2, $3, 'active', 10)
        RETURNING session_id, env, start_time, end_time, status, container_id, duration_minutes`,
       [sessionId, env, containerId]
     );
