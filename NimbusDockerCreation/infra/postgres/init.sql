@@ -6,13 +6,14 @@
 -- Tracks all lab session allocations and their lifecycle
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sessions (
-    session_id    UUID PRIMARY KEY,
-    env           VARCHAR(50) NOT NULL,
-    start_time    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    end_time      TIMESTAMPTZ,
-    status        VARCHAR(20) NOT NULL DEFAULT 'active',
-    container_id  VARCHAR(100),
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    session_id       UUID PRIMARY KEY,
+    env              VARCHAR(50)  NOT NULL,
+    start_time       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    end_time         TIMESTAMPTZ           DEFAULT NOW() + INTERVAL '10 minutes',
+    status           VARCHAR(20)  NOT NULL DEFAULT 'active',
+    container_id     VARCHAR(100),
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    duration_minutes INT          NOT NULL DEFAULT 10
 );
 
 -- Valid status values: active, expired, scheduled, ready
