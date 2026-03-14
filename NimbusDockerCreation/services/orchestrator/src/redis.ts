@@ -10,10 +10,10 @@ export const redis = new Redis(REDIS_URL, {
 redis.on('connect', () => console.log('[Redis] Connected'));
 redis.on('error', (err) => console.error('[Redis] Error:', err.message));
 
-const SESSION_TTL = 2 * 60 * 60; // 2 hours in seconds
+const SESSION_TTL = 10 * 60; // 10 minutes in seconds
 
 /**
- * Register a session in Redis with a 2-hour TTL.
+ * Register a session in Redis with a 10-minute TTL.
  */
 export async function setSessionTTL(sessionId: string, containerId: string): Promise<void> {
   await redis.set(`session:${sessionId}`, containerId, 'EX', SESSION_TTL);
