@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './db';
 import { startEnvironmentContainer, stopAndRemoveContainer } from './docker';
+import { setSessionTTL, deleteSessionKey } from './redis';
 
 const router = Router();
 
@@ -19,13 +20,18 @@ router.post('/sessions', async (req: Request, res: Response): Promise<void> => {
     console.log(`[Orchestrator] Starting container for env: ${env}`);
     const containerId = await startEnvironmentContainer(env);
     
-    // 2. Record this in the database
+    // 2. Record this in the database (end_time auto-set to NOW() + 2h)
     const sessionId = uuidv4();
     const result = await db.query(
-      `INSERT INTO sessions (session_id, env, container_id, status)
-       VALUES ($1, $2, $3, 'active')
-       RETURNING session_id, env, start_time, status, container_id`,
+      `INSERT INTO sessions (session_id, env, container_id, status, duration_minutes)
+       VALUES ($1, $2, $3, 'active', 120)
+       RETURNING session_id, env, start_time, end_time, status, container_id, duration_minutes`,
       [sessionId, env, containerId]
+    );
+    
+    // 3. Register in Redis with 2-hour TTL
+    await setSessionTTL(sessionId, containerId).catch((err) =>
+      console.warn('[Orchestrator] Redis setSessionTTL failed (non-fatal):', err.message)
     );
     
     console.log(`[Orchestrator] Session ${sessionId} created with container ${containerId}`);
@@ -40,6 +46,7 @@ router.post('/sessions', async (req: Request, res: Response): Promise<void> => {
 router.get('/sessions/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    console.log(`[Orchestrator] GET /sessions/${id} received`);
     
     const result = await db.query('SELECT * FROM sessions WHERE session_id = $1', [id]);
     
@@ -58,8 +65,7 @@ router.get('/sessions/:id', async (req: Request, res: Response): Promise<void> =
 router.delete('/sessions/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    
-    // 1. Get container details
+    console.log(`[Orchestrator] DELETE /sessions/${id} received`);
     const result = await db.query('SELECT container_id, status FROM sessions WHERE session_id = $1', [id]);
     
     if (result.rows.length === 0) {
@@ -86,13 +92,22 @@ router.delete('/sessions/:id', async (req: Request, res: Response): Promise<void
       `UPDATE sessions SET status = 'expired', end_time = NOW() WHERE session_id = $1 RETURNING *`,
       [id]
     );
-    
+
+    // 5. Remove Redis TTL key
+    await deleteSessionKey(id).catch(() => {/* non-fatal */});
+
     console.log(`[Orchestrator] Session ${id} terminated`);
     res.json({ message: 'Session terminated successfully', session: updated.rows[0] });
   } catch (error: any) {
     console.error('[Orchestrator] Error terminating session:', error);
     res.status(500).json({ error: 'Failed to terminate session' });
   }
+});
+
+// Catch-all for unmatched routes in this router
+router.use((req, res) => {
+  console.warn(`[Orchestrator] 404 - Not Found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ error: 'Not Found in Orchestrator' });
 });
 
 export default router;

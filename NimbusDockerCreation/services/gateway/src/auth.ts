@@ -17,6 +17,7 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.warn(`[Auth] Rejected ${req.method} ${req.url}: Missing or invalid token format`);
     res.status(401).json({ error: 'Unauthorized: Missing or invalid token format' });
     return;
   }
@@ -27,7 +28,8 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch (error: any) {
+    console.warn(`[Auth] Rejected ${req.method} ${req.url}: ${error.message}`);
     res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
     return;
   }

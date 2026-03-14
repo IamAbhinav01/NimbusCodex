@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers } from 'lucide-react';
+import { ArrowLeft, Layers, Clock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import type { Environment } from '../../data/environments';
 import CodeEditor from '../CodeEditor/CodeEditor';
@@ -13,92 +13,66 @@ interface Props {
   environment: Environment;
 }
 
-function getExecutionLines(language: string): string[] {
-  const langMap: Record<string, string> = {
-    python: 'python3 main.py',
-    typescript: 'ts-node main.ts',
-    javascript: 'node main.js',
-    cpp: 'g++ -o main main.cpp && ./main',
-    java: 'javac Main.java && java Main',
-    go: 'go run main.go',
-    rust: 'rustc main.rs && ./main',
-  };
-  return [
-    `\x1b[32m$\x1b[0m \x1b[33m${langMap[language] ?? 'run main'}\x1b[0m`,
-    '\x1b[90m> Connecting to CloudLab runtime…\x1b[0m',
-    '\x1b[90m> Container ready.\x1b[0m',
-    '\x1b[90m> Running code...\x1b[0m',
-    '',
-  ];
-}
-
-function getOutputLines(code: string, language: string): string[] {
-  // Simulate output extraction from code
-  const printMatches = language === 'python'
-    ? code.match(/print\(([^)]+)\)/g) ?? []
-    : code.match(/console\.log\(([^)]+)\)/g) ??
-      code.match(/System\.out\.println\(([^)]+)\)/g) ??
-      code.match(/fmt\.Println\(([^)]+)\)/g) ??
-      code.match(/println!\(([^)]+)\)/g) ??
-      code.match(/std::cout\s*<<\s*"([^"]+)"/g) ?? [];
-
-  const outputs = printMatches.slice(0, 3).map((m) => {
-    const inner = m.replace(/^print\(|^console\.log\(|^System\.out\.println\(|^fmt\.Println\(|^println!\(/, '').replace(/\)$/, '');
-    return `\x1b[32m${inner.replace(/["'`]/g, '').trim()}\x1b[0m`;
-  });
-
-  if (outputs.length === 0) {
-    outputs.push('\x1b[32mProcess finished with exit code 0\x1b[0m');
-  }
-
-  return [
-    ...outputs,
-    '',
-    `\x1b[90m✓ Done in 0.${Math.floor(Math.random() * 9) + 1}s\x1b[0m`,
-  ];
+/** Format seconds as mm:ss */
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
 }
 
 export default function Workspace({ environment }: Props) {
   const navigate = useNavigate();
-  const [code, setCode] = useState(environment.template);
   const { token } = useAuth();
+  const [code, setCode] = useState(environment.template);
   const [isRunning, setIsRunning] = useState(false);
   const [isLaunching, setIsLaunching] = useState(true);
   const terminalRef = useRef<TerminalHandle>(null);
-
   const [sessionId, setSessionId] = useState<string | null>(null);
 
+  // Session timer state
+  const [endTime, setEndTime] = useState<Date | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [isExpired, setIsExpired] = useState(false);
+
+  // Ref to track the session ID across the async lifecycle for cleanup
+  const activeSessionRef = useRef<string | null>(null);
+
+  // ─── Launch Environment ───────────────────────────────────────────────────
   useEffect(() => {
-    let activeSessionId: string | null = null;
     let isMounted = true;
 
     const launchEnvironment = async () => {
       try {
+        console.log('[Workspace] Launching environment...');
         const response = await fetch('http://localhost:4000/api/sessions', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({ env: environment.id })
         });
-        
+
         if (!response.ok) throw new Error('Failed to launch');
-        
+
         const data = await response.json();
-        
+        console.log('[Workspace] Session created:', data.session_id);
+
         if (!isMounted) {
-          // If unmounted during fetch, clean up the orphaned session
-          fetch(`http://localhost:4000/api/sessions/${data.session_id}`, { 
+          console.log('[Workspace] Component unmounted during launch, cleaning up orphaned session:', data.session_id);
+          // keepalive: true ensures the browser completes this request even after navigation
+          fetch(`http://localhost:4000/api/sessions/${data.session_id}`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${token}` },
+            keepalive: true,
           }).catch(console.error);
           return;
         }
 
-        activeSessionId = data.session_id;
+        activeSessionRef.current = data.session_id;
         setSessionId(data.session_id);
-        
+        if (data.end_time) setEndTime(new Date(data.end_time));
+
         setIsLaunching(false);
         terminalRef.current?.writeln('\x1b[90m> Connected to CloudLab Runtime via Orchestrator\x1b[0m');
         terminalRef.current?.writeln('\x1b[32m✓ Environment ready.\x1b[0m');
@@ -111,22 +85,62 @@ export default function Workspace({ environment }: Props) {
         }
       }
     };
-    
+
     launchEnvironment();
-    
+
     return () => {
       isMounted = false;
-      if (activeSessionId) {
-        fetch(`http://localhost:4000/api/sessions/${activeSessionId}`, {
+      const sid = activeSessionRef.current;
+      console.log('[Workspace] Cleanup triggered. Active session:', sid);
+      if (sid) {
+        fetch(`http://localhost:4000/api/sessions/${sid}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).catch(console.error);
+          headers: { 'Authorization': `Bearer ${token}` },
+          keepalive: true, // keeps request alive after component unmounts / page navigates
+        }).catch(err => console.error('[Workspace] Cleanup DELETE failed:', err));
+        activeSessionRef.current = null;
       }
     };
-  }, [environment.id]);
+  }, [environment.id, token]);
 
+  // ─── Countdown timer (ticks every second) ────────────────────────────────
+  useEffect(() => {
+    if (!endTime) return;
+
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((endTime.getTime() - Date.now()) / 1000));
+      setSecondsLeft(diff);
+      if (diff === 0) setIsExpired(true);
+    };
+    
+    tick(); // run immediately
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [endTime]);
+
+  // ─── Session status polling (every 30s) ───────────────────────────────────
+  useEffect(() => {
+    if (!sessionId || isExpired) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`http://localhost:4000/api/sessions/${sessionId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'expired') setIsExpired(true);
+        if (data.end_time) setEndTime(new Date(data.end_time));
+      } catch { /* non-fatal */ }
+    };
+
+    const id = setInterval(poll, 30_000);
+    return () => clearInterval(id);
+  }, [sessionId, isExpired, token]);
+
+  // ─── Run code ─────────────────────────────────────────────────────────────
   const handleRun = useCallback(async () => {
-    if (isRunning || isLaunching || !sessionId) return;
+    if (isRunning || isLaunching || !sessionId || isExpired) return;
     setIsRunning(true);
 
     terminalRef.current?.writeln(`\x1b[90m> Executing ${environment.name}...\x1b[0m`);
@@ -138,11 +152,7 @@ export default function Workspace({ environment }: Props) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          sessionId, 
-          code, 
-          language: environment.language 
-        })
+        body: JSON.stringify({ sessionId, code, language: environment.language })
       });
 
       if (!response.ok) {
@@ -151,16 +161,10 @@ export default function Workspace({ environment }: Props) {
       }
 
       const data = await response.json();
-
-      // xterm.js requires \r\n for proper line breaks (plain \n causes staircase effect)
       const normalise = (s: string) => s.replace(/\r?\n/g, '\r\n');
 
-      if (data.stdout) {
-        terminalRef.current?.write(normalise(data.stdout));
-      }
-      if (data.stderr) {
-        terminalRef.current?.write(`\x1b[31m${normalise(data.stderr)}\x1b[0m`);
-      }
+      if (data.stdout) terminalRef.current?.write(normalise(data.stdout));
+      if (data.stderr) terminalRef.current?.write(`\x1b[31m${normalise(data.stderr)}\x1b[0m`);
 
       terminalRef.current?.writeln(`\x1b[90m✓ Process finished (exit code ${data.exitCode})\x1b[0m`);
     } catch (error: any) {
@@ -169,7 +173,7 @@ export default function Workspace({ environment }: Props) {
       terminalRef.current?.write('\x1b[32m$\x1b[0m ');
       setIsRunning(false);
     }
-  }, [code, environment.language, isRunning, isLaunching, sessionId, token]);
+  }, [code, environment.language, isRunning, isLaunching, sessionId, token, isExpired]);
 
   // Ctrl+Enter shortcut
   useEffect(() => {
@@ -180,9 +184,13 @@ export default function Workspace({ environment }: Props) {
     return () => window.removeEventListener('keydown', handler);
   }, [handleRun]);
 
+  // Derived state
+  const isWarning = secondsLeft !== null && secondsLeft <= 300 && !isExpired;
+  const timerColor = isExpired ? '#ef4444' : isWarning ? '#eab308' : '#22c55e';
+
   return (
     <div className={styles.workspace}>
-      {/* Top bar */}
+      {/* ── Topbar ── */}
       <div className={styles.topbar}>
         <button className={styles.backBtn} onClick={() => navigate('/')}>
           <ArrowLeft size={14} />
@@ -199,12 +207,31 @@ export default function Workspace({ environment }: Props) {
           </span>
         </div>
         <div className={styles.topRight}>
+          {/* Session timer */}
+          {secondsLeft !== null && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: timerColor, fontVariantNumeric: 'tabular-nums', fontSize: 12, fontWeight: 600 }}>
+              <Clock size={12} />
+              {isExpired ? 'Expired' : formatTime(secondsLeft)}
+            </span>
+          )}
           <Layers size={14} className={styles.topIcon} />
           <span>{environment.libraries.length} packages</span>
         </div>
       </div>
 
-      {/* Launching overlay */}
+      {/* ── 5-min warning banner ── */}
+      {isWarning && (
+        <div style={{
+          background: 'rgba(234,179,8,0.15)', borderBottom: '1px solid #854d0e',
+          color: '#fde047', padding: '6px 16px', display: 'flex', alignItems: 'center',
+          gap: 8, fontSize: 13,
+        }}>
+          <AlertTriangle size={14} />
+          <strong>Session expires in {formatTime(secondsLeft!)}.</strong>&nbsp;Save your work — the sandbox will be destroyed automatically.
+        </div>
+      )}
+
+      {/* ── Launching overlay ── */}
       {isLaunching && (
         <div className={styles.launchOverlay}>
           <div className={styles.launchCard}>
@@ -218,14 +245,38 @@ export default function Workspace({ environment }: Props) {
         </div>
       )}
 
-      {/* Main grid */}
+      {/* ── Expiry modal ── */}
+      {isExpired && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+        }}>
+          <div style={{
+            background: '#18181b', border: '1px solid #3f3f46', borderRadius: 12,
+            padding: 32, textAlign: 'center', maxWidth: 380,
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⏰</div>
+            <h2 style={{ color: '#f4f4f5', margin: '0 0 8px' }}>Session Expired</h2>
+            <p style={{ color: '#a1a1aa', margin: '0 0 24px', lineHeight: 1.6 }}>
+              Your lab session has ended and the container has been automatically destroyed.
+            </p>
+            <button
+              onClick={() => navigate('/')}
+              style={{
+                background: '#6366f1', color: '#fff', border: 'none', borderRadius: 8,
+                padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              ← Back to Home
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main grid ── */}
       <div className={styles.grid}>
         <div className={styles.editorArea}>
-          <CodeEditor
-            language={environment.language}
-            value={code}
-            onChange={setCode}
-          />
+          <CodeEditor language={environment.language} value={code} onChange={setCode} />
         </div>
         <div className={styles.metricsArea}>
           <MetricsPanel />

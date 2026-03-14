@@ -12,12 +12,19 @@ const CODE_RUNNER_URL = process.env.CODE_RUNNER_URL || 'http://localhost:4003';
 
 app.use(cors());
 
+// Request Logging
+app.use((req, res, next) => {
+  console.log(`[Gateway Logger] ${req.method} ${req.originalUrl} -> ${req.url}`);
+  next();
+});
+
 // Healthcheck
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'api-gateway' });
 });
 
 // AUTH
+// Map /api/auth/* to auth:4001/*
 app.use(
   '/api/auth',
   createProxyMiddleware({
@@ -30,28 +37,26 @@ app.use(
 );
 
 // SESSIONS
+// Map /api/sessions/* to orchestrator:4002/sessions/*
+// Since we mount at /api/sessions, visiting /api/sessions/123 passes /123 to proxy.
+// Appending /sessions to target handles the prefix on the target side.
 app.use(
   '/api/sessions',
   requireAuth,
   createProxyMiddleware({
-    target: ORCHESTRATOR_URL,
+    target: ORCHESTRATOR_URL + '/sessions',
     changeOrigin: true,
-    pathRewrite: {
-      '^/': '/sessions',
-    },
   })
 );
 
 // CODE EXECUTION
+// Map /api/execute to code-runner:4003/execute
 app.use(
   '/api/execute',
   requireAuth,
   createProxyMiddleware({
-    target: CODE_RUNNER_URL,
+    target: CODE_RUNNER_URL + '/execute',
     changeOrigin: true,
-    pathRewrite: {
-      '^/': '/execute',
-    },
   })
 );
 
