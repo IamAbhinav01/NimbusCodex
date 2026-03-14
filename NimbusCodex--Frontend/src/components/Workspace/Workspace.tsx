@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Layers } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import type { Environment } from '../../data/environments';
 import CodeEditor from '../CodeEditor/CodeEditor';
 import Terminal, { type TerminalHandle } from '../Terminal/Terminal';
@@ -60,6 +61,7 @@ function getOutputLines(code: string, language: string): string[] {
 export default function Workspace({ environment }: Props) {
   const navigate = useNavigate();
   const [code, setCode] = useState(environment.template);
+  const { token } = useAuth();
   const [isRunning, setIsRunning] = useState(false);
   const [isLaunching, setIsLaunching] = useState(true);
   const terminalRef = useRef<TerminalHandle>(null);
@@ -72,9 +74,12 @@ export default function Workspace({ environment }: Props) {
 
     const launchEnvironment = async () => {
       try {
-        const response = await fetch('http://localhost:4002/sessions', {
+        const response = await fetch('http://localhost:4000/api/sessions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           body: JSON.stringify({ env: environment.id })
         });
         
@@ -84,7 +89,10 @@ export default function Workspace({ environment }: Props) {
         
         if (!isMounted) {
           // If unmounted during fetch, clean up the orphaned session
-          fetch(`http://localhost:4002/sessions/${data.session_id}`, { method: 'DELETE' }).catch(console.error);
+          fetch(`http://localhost:4000/api/sessions/${data.session_id}`, { 
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).catch(console.error);
           return;
         }
 
@@ -109,35 +117,59 @@ export default function Workspace({ environment }: Props) {
     return () => {
       isMounted = false;
       if (activeSessionId) {
-        fetch(`http://localhost:4002/sessions/${activeSessionId}`, {
+        fetch(`http://localhost:4000/api/sessions/${activeSessionId}`, {
           method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
         }).catch(console.error);
       }
     };
   }, [environment.id]);
 
   const handleRun = useCallback(async () => {
-    if (isRunning || isLaunching) return;
+    if (isRunning || isLaunching || !sessionId) return;
     setIsRunning(true);
 
-    const execLines = getExecutionLines(environment.language);
-    for (const line of execLines) {
-      terminalRef.current?.writeln(line);
-      await new Promise((r) => setTimeout(r, 150));
+    terminalRef.current?.writeln(`\x1b[90m> Executing ${environment.name}...\x1b[0m`);
+
+    try {
+      const response = await fetch('http://localhost:4000/api/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          sessionId, 
+          code, 
+          language: environment.language 
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.details || errData.error || 'Execution failed');
+      }
+
+      const data = await response.json();
+
+      // xterm.js requires \r\n for proper line breaks (plain \n causes staircase effect)
+      const normalise = (s: string) => s.replace(/\r?\n/g, '\r\n');
+
+      if (data.stdout) {
+        terminalRef.current?.write(normalise(data.stdout));
+      }
+      if (data.stderr) {
+        terminalRef.current?.write(`\x1b[31m${normalise(data.stderr)}\x1b[0m`);
+      }
+
+      terminalRef.current?.writeln(`\x1b[90m✓ Process finished (exit code ${data.exitCode})\x1b[0m`);
+    } catch (error: any) {
+      terminalRef.current?.writeln(`\x1b[31m✗ Execution Error: ${error.message}\x1b[0m`);
+    } finally {
+      terminalRef.current?.write('\x1b[32m$\x1b[0m ');
+      setIsRunning(false);
     }
-
-    // 1 second execution delay
-    await new Promise((r) => setTimeout(r, 1000));
-
-    const outputLines = getOutputLines(code, environment.language);
-    for (const line of outputLines) {
-      terminalRef.current?.writeln(line);
-      await new Promise((r) => setTimeout(r, 80));
-    }
-
-    terminalRef.current?.write('\x1b[32m$\x1b[0m ');
-    setIsRunning(false);
-  }, [code, environment.language, isRunning, isLaunching]);
+  }, [code, environment.language, isRunning, isLaunching, sessionId, token]);
 
   // Ctrl+Enter shortcut
   useEffect(() => {

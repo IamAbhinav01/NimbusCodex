@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 4000;
 
 const AUTH_URL = process.env.AUTH_URL || 'http://localhost:4001';
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:4002';
+const CODE_RUNNER_URL = process.env.CODE_RUNNER_URL || 'http://localhost:4003';
 
 app.use(cors());
 
@@ -36,7 +37,20 @@ app.use(
     target: ORCHESTRATOR_URL,
     changeOrigin: true,
     pathRewrite: {
-      '^/': '/sessions', // Correctly rewrite the relative path stripped by express
+      '^/': '/sessions',
+    },
+  })
+);
+
+// CODE EXECUTION
+app.use(
+  '/api/execute',
+  requireAuth,
+  createProxyMiddleware({
+    target: CODE_RUNNER_URL,
+    changeOrigin: true,
+    pathRewrite: {
+      '^/': '/execute',
     },
   })
 );
